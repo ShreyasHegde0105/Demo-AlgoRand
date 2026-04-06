@@ -1,0 +1,675 @@
+#pragma version 11
+#pragma typetrack false
+
+// algopy.arc4.ARC4Contract.approval_program() -> uint64:
+main:
+    intcblock 0 1 2 32
+    bytecblock 0x "status" "amount" "selected_supplier" "buyer" "quote_id" "approved" "approver" "seller" "agent" "quote_valid_until" "funded_at" "fund_txn" "release_txn" "refund_txn" "settlement_supplier" "settlement_amount" "settlement_txn" 0x151f7c75
+    // smart_contracts/escrow_contract/contract.py:11
+    // class ProcureEscrowContract(arc4.ARC4Contract):
+    txn OnCompletion
+    !
+    assert
+    txn ApplicationID
+    bz main_create_NoOp@14
+    pushbytess 0x51531b75 0xa88d29a5 0xd611dbd8 0xff4966a6 0xace12c19 0xe0340cd1 0x29a2dd5a 0x59fb0c57 // method "fund(pay)void", method "set_selected_supplier(string,string)void", method "approve()void", method "confirm_delivery()void", method "release_payment()void", method "refund_buyer()void", method "get_status()uint64", method "get_amount()uint64"
+    txna ApplicationArgs 0
+    match fund set_selected_supplier approve confirm_delivery release_payment refund_buyer get_status get_amount
+    err
+
+main_create_NoOp@14:
+    // smart_contracts/escrow_contract/contract.py:11
+    // class ProcureEscrowContract(arc4.ARC4Contract):
+    pushbytes 0x47c60d7a // method "create_application(string,address,address,address,address,uint64,uint64)void"
+    txna ApplicationArgs 0
+    match create_application
+    err
+
+
+// smart_contracts.escrow_contract.contract.ProcureEscrowContract.create_application[routing]() -> void:
+create_application:
+    // smart_contracts/escrow_contract/contract.py:42
+    // @arc4.abimethod(create="require")
+    txna ApplicationArgs 1
+    dup
+    intc_0 // 0
+    extract_uint16 // on error: invalid array length header
+    intc_2 // 2
+    +
+    dig 1
+    len
+    ==
+    assert // invalid number of bytes for arc4.dynamic_array<arc4.uint8>
+    txna ApplicationArgs 2
+    dup
+    len
+    intc_3 // 32
+    ==
+    assert // invalid number of bytes for arc4.static_array<arc4.uint8, 32>
+    txna ApplicationArgs 3
+    dup
+    len
+    intc_3 // 32
+    ==
+    assert // invalid number of bytes for arc4.static_array<arc4.uint8, 32>
+    txna ApplicationArgs 4
+    dup
+    len
+    intc_3 // 32
+    ==
+    assert // invalid number of bytes for arc4.static_array<arc4.uint8, 32>
+    txna ApplicationArgs 5
+    dup
+    len
+    intc_3 // 32
+    ==
+    assert // invalid number of bytes for arc4.static_array<arc4.uint8, 32>
+    txna ApplicationArgs 6
+    dup
+    len
+    pushint 8
+    ==
+    assert // invalid number of bytes for arc4.uint64
+    txna ApplicationArgs 7
+    dup
+    len
+    pushint 8
+    ==
+    assert // invalid number of bytes for arc4.uint64
+    // smart_contracts/escrow_contract/contract.py:54
+    // assert amount.native > algopy.UInt64(0), "amount must be greater than zero"
+    swap
+    btoi
+    dup
+    assert // amount must be greater than zero
+    // smart_contracts/escrow_contract/contract.py:55
+    // assert buyer.native != seller.native, "buyer and seller must differ"
+    dig 5
+    dig 5
+    !=
+    assert // buyer and seller must differ
+    // smart_contracts/escrow_contract/contract.py:56
+    // assert quote_valid_until.native > algopy.Global.round, "quote must expire later"
+    swap
+    btoi
+    dup
+    global Round
+    >
+    assert // quote must expire later
+    // smart_contracts/escrow_contract/contract.py:58
+    // self.order_id.value = order_id.bytes
+    pushbytes "order_id"
+    uncover 7
+    app_global_put
+    // smart_contracts/escrow_contract/contract.py:59
+    // self.buyer.value = buyer.native
+    bytec 4 // "buyer"
+    uncover 6
+    app_global_put
+    // smart_contracts/escrow_contract/contract.py:60
+    // self.seller.value = seller.native
+    bytec 8 // "seller"
+    uncover 5
+    app_global_put
+    // smart_contracts/escrow_contract/contract.py:61
+    // self.agent.value = agent.native
+    bytec 9 // "agent"
+    uncover 4
+    app_global_put
+    // smart_contracts/escrow_contract/contract.py:62
+    // self.approver.value = approver.native
+    bytec 7 // "approver"
+    uncover 3
+    app_global_put
+    // smart_contracts/escrow_contract/contract.py:63
+    // self.amount.value = amount.native
+    bytec_2 // "amount"
+    uncover 2
+    app_global_put
+    // smart_contracts/escrow_contract/contract.py:64
+    // self.status.value = algopy.UInt64(0)
+    bytec_1 // "status"
+    intc_0 // 0
+    app_global_put
+    // smart_contracts/escrow_contract/contract.py:65
+    // self.selected_supplier.value = algopy.Bytes()
+    bytec_3 // "selected_supplier"
+    bytec_0 // 0x
+    app_global_put
+    // smart_contracts/escrow_contract/contract.py:66
+    // self.quote_id.value = algopy.Bytes()
+    bytec 5 // "quote_id"
+    bytec_0 // 0x
+    app_global_put
+    // smart_contracts/escrow_contract/contract.py:67
+    // self.quote_valid_until.value = quote_valid_until.native
+    bytec 10 // "quote_valid_until"
+    swap
+    app_global_put
+    // smart_contracts/escrow_contract/contract.py:68
+    // self.approved.value = algopy.UInt64(0)
+    bytec 6 // "approved"
+    intc_0 // 0
+    app_global_put
+    // smart_contracts/escrow_contract/contract.py:69
+    // self.funded_at_round.value = algopy.UInt64(0)
+    bytec 11 // "funded_at"
+    intc_0 // 0
+    app_global_put
+    // smart_contracts/escrow_contract/contract.py:70
+    // self.funding_txn_id.value = algopy.Bytes()
+    bytec 12 // "fund_txn"
+    bytec_0 // 0x
+    app_global_put
+    // smart_contracts/escrow_contract/contract.py:71
+    // self.release_txn_id.value = algopy.Bytes()
+    bytec 13 // "release_txn"
+    bytec_0 // 0x
+    app_global_put
+    // smart_contracts/escrow_contract/contract.py:72
+    // self.refund_txn_id.value = algopy.Bytes()
+    bytec 14 // "refund_txn"
+    bytec_0 // 0x
+    app_global_put
+    // smart_contracts/escrow_contract/contract.py:73
+    // self.settlement_supplier.value = algopy.Bytes()
+    bytec 15 // "settlement_supplier"
+    bytec_0 // 0x
+    app_global_put
+    // smart_contracts/escrow_contract/contract.py:74
+    // self.settlement_amount.value = algopy.UInt64(0)
+    bytec 16 // "settlement_amount"
+    intc_0 // 0
+    app_global_put
+    // smart_contracts/escrow_contract/contract.py:75
+    // self.settlement_txn.value = algopy.Bytes()
+    bytec 17 // "settlement_txn"
+    bytec_0 // 0x
+    app_global_put
+    // smart_contracts/escrow_contract/contract.py:42
+    // @arc4.abimethod(create="require")
+    intc_1 // 1
+    return
+
+
+// smart_contracts.escrow_contract.contract.ProcureEscrowContract.fund[routing]() -> void:
+fund:
+    // smart_contracts/escrow_contract/contract.py:77
+    // @arc4.abimethod()
+    txn GroupIndex
+    intc_1 // 1
+    -
+    dup
+    gtxns TypeEnum
+    intc_1 // pay
+    ==
+    assert // transaction type is pay
+    // smart_contracts/escrow_contract/contract.py:80
+    // assert self.status.value == algopy.UInt64(0), "escrow is not awaiting funding"
+    intc_0 // 0
+    bytec_1 // "status"
+    app_global_get_ex
+    assert // check self.status exists
+    !
+    assert // escrow is not awaiting funding
+    // smart_contracts/escrow_contract/contract.py:81
+    // assert payment.sender == self.buyer.value, "payment sender must be the buyer"
+    dup
+    gtxns Sender
+    intc_0 // 0
+    bytec 4 // "buyer"
+    app_global_get_ex
+    assert // check self.buyer exists
+    ==
+    assert // payment sender must be the buyer
+    // smart_contracts/escrow_contract/contract.py:83
+    // payment.receiver == algopy.Global.current_application_address
+    dup
+    gtxns Receiver
+    global CurrentApplicationAddress
+    ==
+    // smart_contracts/escrow_contract/contract.py:82-84
+    // assert (
+    //     payment.receiver == algopy.Global.current_application_address
+    // ), "payment receiver must be app account"
+    assert // payment receiver must be app account
+    // smart_contracts/escrow_contract/contract.py:85
+    // assert payment.amount == self.amount.value, "payment amount mismatch"
+    dup
+    gtxns Amount
+    intc_0 // 0
+    bytec_2 // "amount"
+    app_global_get_ex
+    assert // check self.amount exists
+    ==
+    assert // payment amount mismatch
+    // smart_contracts/escrow_contract/contract.py:87
+    // self.funding_txn_id.value = payment.txn_id
+    gtxns TxID
+    bytec 12 // "fund_txn"
+    swap
+    app_global_put
+    // smart_contracts/escrow_contract/contract.py:88
+    // self.funded_at_round.value = algopy.Global.round
+    bytec 11 // "funded_at"
+    global Round
+    app_global_put
+    // smart_contracts/escrow_contract/contract.py:89
+    // self.status.value = algopy.UInt64(1)
+    bytec_1 // "status"
+    intc_1 // 1
+    app_global_put
+    // smart_contracts/escrow_contract/contract.py:77
+    // @arc4.abimethod()
+    intc_1 // 1
+    return
+
+
+// smart_contracts.escrow_contract.contract.ProcureEscrowContract.set_selected_supplier[routing]() -> void:
+set_selected_supplier:
+    // smart_contracts/escrow_contract/contract.py:91
+    // @arc4.abimethod()
+    txna ApplicationArgs 1
+    dup
+    intc_0 // 0
+    extract_uint16 // on error: invalid array length header
+    intc_2 // 2
+    +
+    dig 1
+    len
+    ==
+    assert // invalid number of bytes for arc4.dynamic_array<arc4.uint8>
+    txna ApplicationArgs 2
+    dup
+    intc_0 // 0
+    extract_uint16 // on error: invalid array length header
+    intc_2 // 2
+    +
+    dig 1
+    len
+    ==
+    assert // invalid number of bytes for arc4.dynamic_array<arc4.uint8>
+    // smart_contracts/escrow_contract/contract.py:98
+    // assert algopy.Txn.sender == self.agent.value, "only agent can select supplier"
+    txn Sender
+    intc_0 // 0
+    bytec 9 // "agent"
+    app_global_get_ex
+    assert // check self.agent exists
+    ==
+    assert // only agent can select supplier
+    // smart_contracts/escrow_contract/contract.py:99
+    // assert self.status.value != algopy.UInt64(3), "payment already released"
+    intc_0 // 0
+    bytec_1 // "status"
+    app_global_get_ex
+    assert // check self.status exists
+    dup
+    pushint 3
+    !=
+    assert // payment already released
+    // smart_contracts/escrow_contract/contract.py:100
+    // assert self.status.value != algopy.UInt64(4), "escrow already refunded"
+    pushint 4
+    !=
+    assert // escrow already refunded
+    // smart_contracts/escrow_contract/contract.py:101
+    // assert selected_supplier.bytes != algopy.Bytes(), "selected supplier is required"
+    dig 1
+    bytec_0 // 0x
+    !=
+    assert // selected supplier is required
+    // smart_contracts/escrow_contract/contract.py:102
+    // assert quote_id.bytes != algopy.Bytes(), "quote id is required"
+    dup
+    bytec_0 // 0x
+    !=
+    assert // quote id is required
+    // smart_contracts/escrow_contract/contract.py:104
+    // self.selected_supplier.value = selected_supplier.bytes
+    bytec_3 // "selected_supplier"
+    uncover 2
+    app_global_put
+    // smart_contracts/escrow_contract/contract.py:105
+    // self.quote_id.value = quote_id.bytes
+    bytec 5 // "quote_id"
+    swap
+    app_global_put
+    // smart_contracts/escrow_contract/contract.py:106
+    // self.approved.value = algopy.UInt64(0)
+    bytec 6 // "approved"
+    intc_0 // 0
+    app_global_put
+    // smart_contracts/escrow_contract/contract.py:91
+    // @arc4.abimethod()
+    intc_1 // 1
+    return
+
+
+// smart_contracts.escrow_contract.contract.ProcureEscrowContract.approve[routing]() -> void:
+approve:
+    // smart_contracts/escrow_contract/contract.py:111
+    // assert algopy.Txn.sender == self.approver.value, "only approver can approve"
+    txn Sender
+    intc_0 // 0
+    bytec 7 // "approver"
+    app_global_get_ex
+    assert // check self.approver exists
+    ==
+    assert // only approver can approve
+    // smart_contracts/escrow_contract/contract.py:112
+    // assert self.status.value != algopy.UInt64(3), "payment already released"
+    intc_0 // 0
+    bytec_1 // "status"
+    app_global_get_ex
+    assert // check self.status exists
+    dup
+    pushint 3
+    !=
+    assert // payment already released
+    // smart_contracts/escrow_contract/contract.py:113
+    // assert self.status.value != algopy.UInt64(4), "escrow already refunded"
+    pushint 4
+    !=
+    assert // escrow already refunded
+    // smart_contracts/escrow_contract/contract.py:114
+    // assert self.selected_supplier.value != algopy.Bytes(), "supplier not selected"
+    intc_0 // 0
+    bytec_3 // "selected_supplier"
+    app_global_get_ex
+    assert // check self.selected_supplier exists
+    bytec_0 // 0x
+    !=
+    assert // supplier not selected
+    // smart_contracts/escrow_contract/contract.py:115
+    // assert self.quote_id.value != algopy.Bytes(), "quote id not set"
+    intc_0 // 0
+    bytec 5 // "quote_id"
+    app_global_get_ex
+    assert // check self.quote_id exists
+    bytec_0 // 0x
+    !=
+    assert // quote id not set
+    // smart_contracts/escrow_contract/contract.py:117
+    // self.approved.value = algopy.UInt64(1)
+    bytec 6 // "approved"
+    intc_1 // 1
+    app_global_put
+    // smart_contracts/escrow_contract/contract.py:108
+    // @arc4.abimethod()
+    intc_1 // 1
+    return
+
+
+// smart_contracts.escrow_contract.contract.ProcureEscrowContract.confirm_delivery[routing]() -> void:
+confirm_delivery:
+    // smart_contracts/escrow_contract/contract.py:122
+    // assert self.status.value == algopy.UInt64(1), "escrow must be funded first"
+    intc_0 // 0
+    bytec_1 // "status"
+    app_global_get_ex
+    assert // check self.status exists
+    intc_1 // 1
+    ==
+    assert // escrow must be funded first
+    // smart_contracts/escrow_contract/contract.py:123
+    // assert algopy.Txn.sender == self.buyer.value, "only buyer can confirm delivery"
+    txn Sender
+    intc_0 // 0
+    bytec 4 // "buyer"
+    app_global_get_ex
+    assert // check self.buyer exists
+    ==
+    assert // only buyer can confirm delivery
+    // smart_contracts/escrow_contract/contract.py:125
+    // self.status.value = algopy.UInt64(2)
+    bytec_1 // "status"
+    intc_2 // 2
+    app_global_put
+    // smart_contracts/escrow_contract/contract.py:119
+    // @arc4.abimethod()
+    intc_1 // 1
+    return
+
+
+// smart_contracts.escrow_contract.contract.ProcureEscrowContract.release_payment[routing]() -> void:
+release_payment:
+    // smart_contracts/escrow_contract/contract.py:130
+    // assert self.status.value == algopy.UInt64(2), "delivery has not been confirmed"
+    intc_0 // 0
+    bytec_1 // "status"
+    app_global_get_ex
+    assert // check self.status exists
+    intc_2 // 2
+    ==
+    assert // delivery has not been confirmed
+    // smart_contracts/escrow_contract/contract.py:131
+    // assert algopy.Txn.sender == self.approver.value, "only approver can release payment"
+    txn Sender
+    intc_0 // 0
+    bytec 7 // "approver"
+    app_global_get_ex
+    assert // check self.approver exists
+    ==
+    assert // only approver can release payment
+    // smart_contracts/escrow_contract/contract.py:132
+    // assert self.approved.value == algopy.UInt64(1), "payment not approved"
+    intc_0 // 0
+    bytec 6 // "approved"
+    app_global_get_ex
+    assert // check self.approved exists
+    intc_1 // 1
+    ==
+    assert // payment not approved
+    // smart_contracts/escrow_contract/contract.py:133
+    // assert self.selected_supplier.value != algopy.Bytes(), "supplier not selected"
+    intc_0 // 0
+    bytec_3 // "selected_supplier"
+    app_global_get_ex
+    assert // check self.selected_supplier exists
+    bytec_0 // 0x
+    !=
+    assert // supplier not selected
+    // smart_contracts/escrow_contract/contract.py:134
+    // assert self.quote_id.value != algopy.Bytes(), "quote id not set"
+    intc_0 // 0
+    bytec 5 // "quote_id"
+    app_global_get_ex
+    assert // check self.quote_id exists
+    bytec_0 // 0x
+    !=
+    assert // quote id not set
+    // smart_contracts/escrow_contract/contract.py:135
+    // assert algopy.Global.round <= self.quote_valid_until.value, "quote has expired"
+    global Round
+    intc_0 // 0
+    bytec 10 // "quote_valid_until"
+    app_global_get_ex
+    assert // check self.quote_valid_until exists
+    <=
+    assert // quote has expired
+    // smart_contracts/escrow_contract/contract.py:137-141
+    // payment_result = algopy.itxn.Payment(
+    //     receiver=self.seller.value,
+    //     amount=self.amount.value,
+    //     fee=0,
+    // ).submit()
+    itxn_begin
+    // smart_contracts/escrow_contract/contract.py:138
+    // receiver=self.seller.value,
+    intc_0 // 0
+    bytec 8 // "seller"
+    app_global_get_ex
+    assert // check self.seller exists
+    // smart_contracts/escrow_contract/contract.py:139
+    // amount=self.amount.value,
+    intc_0 // 0
+    bytec_2 // "amount"
+    app_global_get_ex
+    assert // check self.amount exists
+    itxn_field Amount
+    itxn_field Receiver
+    // smart_contracts/escrow_contract/contract.py:137
+    // payment_result = algopy.itxn.Payment(
+    intc_1 // pay
+    itxn_field TypeEnum
+    // smart_contracts/escrow_contract/contract.py:140
+    // fee=0,
+    intc_0 // 0
+    itxn_field Fee
+    // smart_contracts/escrow_contract/contract.py:137-141
+    // payment_result = algopy.itxn.Payment(
+    //     receiver=self.seller.value,
+    //     amount=self.amount.value,
+    //     fee=0,
+    // ).submit()
+    itxn_submit
+    itxn TxID
+    // smart_contracts/escrow_contract/contract.py:143
+    // self.release_txn_id.value = payment_result.txn_id
+    bytec 13 // "release_txn"
+    dig 1
+    app_global_put
+    // smart_contracts/escrow_contract/contract.py:144
+    // self.settlement_supplier.value = self.selected_supplier.value
+    intc_0 // 0
+    bytec_3 // "selected_supplier"
+    app_global_get_ex
+    assert // check self.selected_supplier exists
+    bytec 15 // "settlement_supplier"
+    swap
+    app_global_put
+    // smart_contracts/escrow_contract/contract.py:145
+    // self.settlement_amount.value = self.amount.value
+    intc_0 // 0
+    bytec_2 // "amount"
+    app_global_get_ex
+    assert // check self.amount exists
+    bytec 16 // "settlement_amount"
+    swap
+    app_global_put
+    // smart_contracts/escrow_contract/contract.py:146
+    // self.settlement_txn.value = payment_result.txn_id
+    bytec 17 // "settlement_txn"
+    swap
+    app_global_put
+    // smart_contracts/escrow_contract/contract.py:147
+    // self.status.value = algopy.UInt64(3)
+    bytec_1 // "status"
+    pushint 3
+    app_global_put
+    // smart_contracts/escrow_contract/contract.py:127
+    // @arc4.abimethod()
+    intc_1 // 1
+    return
+
+
+// smart_contracts.escrow_contract.contract.ProcureEscrowContract.refund_buyer[routing]() -> void:
+refund_buyer:
+    // smart_contracts/escrow_contract/contract.py:155
+    // assert self.status.value == algopy.UInt64(1), "refund only allowed for funded escrow"
+    intc_0 // 0
+    bytec_1 // "status"
+    app_global_get_ex
+    assert // check self.status exists
+    intc_1 // 1
+    ==
+    assert // refund only allowed for funded escrow
+    // smart_contracts/escrow_contract/contract.py:157
+    // algopy.Txn.sender == algopy.Global.creator_address
+    txn Sender
+    global CreatorAddress
+    ==
+    // smart_contracts/escrow_contract/contract.py:156-158
+    // assert (
+    //     algopy.Txn.sender == algopy.Global.creator_address
+    // ), "only creator can trigger refund"
+    assert // only creator can trigger refund
+    // smart_contracts/escrow_contract/contract.py:160-164
+    // payment_result = algopy.itxn.Payment(
+    //     receiver=self.buyer.value,
+    //     amount=self.amount.value,
+    //     fee=0,
+    // ).submit()
+    itxn_begin
+    // smart_contracts/escrow_contract/contract.py:161
+    // receiver=self.buyer.value,
+    intc_0 // 0
+    bytec 4 // "buyer"
+    app_global_get_ex
+    assert // check self.buyer exists
+    // smart_contracts/escrow_contract/contract.py:162
+    // amount=self.amount.value,
+    intc_0 // 0
+    bytec_2 // "amount"
+    app_global_get_ex
+    assert // check self.amount exists
+    itxn_field Amount
+    itxn_field Receiver
+    // smart_contracts/escrow_contract/contract.py:160
+    // payment_result = algopy.itxn.Payment(
+    intc_1 // pay
+    itxn_field TypeEnum
+    // smart_contracts/escrow_contract/contract.py:163
+    // fee=0,
+    intc_0 // 0
+    itxn_field Fee
+    // smart_contracts/escrow_contract/contract.py:160-164
+    // payment_result = algopy.itxn.Payment(
+    //     receiver=self.buyer.value,
+    //     amount=self.amount.value,
+    //     fee=0,
+    // ).submit()
+    itxn_submit
+    // smart_contracts/escrow_contract/contract.py:166
+    // self.refund_txn_id.value = payment_result.txn_id
+    bytec 14 // "refund_txn"
+    itxn TxID
+    app_global_put
+    // smart_contracts/escrow_contract/contract.py:167
+    // self.status.value = algopy.UInt64(4)
+    bytec_1 // "status"
+    pushint 4
+    app_global_put
+    // smart_contracts/escrow_contract/contract.py:149
+    // @arc4.abimethod()
+    intc_1 // 1
+    return
+
+
+// smart_contracts.escrow_contract.contract.ProcureEscrowContract.get_status[routing]() -> void:
+get_status:
+    // smart_contracts/escrow_contract/contract.py:171
+    // return arc4.UInt64(self.status.value)
+    intc_0 // 0
+    bytec_1 // "status"
+    app_global_get_ex
+    assert // check self.status exists
+    itob
+    // smart_contracts/escrow_contract/contract.py:169
+    // @arc4.abimethod(readonly=True)
+    bytec 18 // 0x151f7c75
+    swap
+    concat
+    log
+    intc_1 // 1
+    return
+
+
+// smart_contracts.escrow_contract.contract.ProcureEscrowContract.get_amount[routing]() -> void:
+get_amount:
+    // smart_contracts/escrow_contract/contract.py:175
+    // return arc4.UInt64(self.amount.value)
+    intc_0 // 0
+    bytec_2 // "amount"
+    app_global_get_ex
+    assert // check self.amount exists
+    itob
+    // smart_contracts/escrow_contract/contract.py:173
+    // @arc4.abimethod(readonly=True)
+    bytec 18 // 0x151f7c75
+    swap
+    concat
+    log
+    intc_1 // 1
+    return

@@ -1,0 +1,8 @@
+README.md
+pyproject.toml
+procure_contracts.egg-info/PKG-INFO
+procure_contracts.egg-info/SOURCES.txt
+procure_contracts.egg-info/dependency_links.txt
+procure_contracts.egg-info/requires.txt
+procure_contracts.egg-info/top_level.txt
+smart_contracts/__init__.py

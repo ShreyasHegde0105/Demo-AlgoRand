@@ -1,0 +1,21 @@
+[project]
+name = "procure-contracts"
+version = "0.1.0"
+description = "Algorand smart contracts for Procure AI"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "algorand-python>=3.4.0",
+    "algokit-utils>=3.0.0",
+    "py-algorand-sdk>=2.6.1",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["smart_contracts"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

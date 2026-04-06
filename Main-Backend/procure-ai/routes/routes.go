@@ -17,4 +17,13 @@ func RegisterRoutes(router *gin.Engine, controller *controllers.Controller) {
 	router.POST("/generate-qr", controller.GenerateQR)
 	router.POST("/verify-qr", controller.VerifyQR)
 	router.POST("/confirm-delivery", controller.ConfirmDelivery)
+	router.POST("/blockchain/create-escrow", controller.CreateEscrow)
+	router.POST("/blockchain/prepare-fund", controller.PrepareFund)
+	router.POST("/blockchain/prepare-select-supplier", controller.PrepareSelectSupplier)
+	router.POST("/blockchain/confirm-select-supplier", controller.ConfirmSelectedSupplier)
+	router.POST("/blockchain/prepare-approve", controller.PrepareApproveEscrow)
+	router.POST("/blockchain/confirm-approve", controller.ConfirmApproveEscrow)
+	router.POST("/blockchain/confirm-fund", controller.ConfirmFund)
+	router.POST("/blockchain/prepare-release", controller.PrepareRelease)
+	router.POST("/blockchain/confirm-release", controller.ConfirmRelease)
 }

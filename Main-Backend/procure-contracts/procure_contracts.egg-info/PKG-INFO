@@ -1,0 +1,54 @@
+Metadata-Version: 2.4
+Name: procure-contracts
+Version: 0.1.0
+Summary: Algorand smart contracts for Procure AI
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+Requires-Dist: algopy>=0.7.0
+Requires-Dist: algokit-utils>=3.0.0
+Requires-Dist: py-algorand-sdk>=2.6.1
+
+# Procure Contracts
+
+Algorand smart contracts for the Procure AI demo.
+
+This folder is intentionally separate from the Go backend in `../procure-ai`.
+
+## Scope
+
+The first contract replaces the mocked payment flow in the backend with an escrow-style application that supports:
+
+- creating an escrow for an order
+- funding an order
+- confirming delivery
+- releasing payment
+- refunding if needed
+
+## Structure
+
+```text
+procure-contracts/
+  smart_contracts/
+    escrow_contract/
+      contract.py
+  tests/
+  pyproject.toml
+```
+
+## Next Steps
+
+1. Install Python dependencies.
+2. Finish the escrow contract methods and state model.
+3. Add deployment scripts.
+4. Wire the Go backend to call the deployed app using the Algorand SDK.
+
+## Contract Model
+
+The current contract is designed as one app instance per order. That keeps the hackathon story simple:
+
+- create app for order `ORD-xxxx`
+- buyer funds the app account
+- buyer confirms delivery
+- app releases payment to seller
+
+This avoids needing box maps or a shared multi-order app on day one.

@@ -1,0 +1,3 @@
+algopy>=0.7.0
+algokit-utils>=3.0.0
+py-algorand-sdk>=2.6.1
