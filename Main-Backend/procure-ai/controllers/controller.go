@@ -9,11 +9,12 @@ import (
 )
 
 type Controller struct {
-	vendorService      *services.VendorService
-	agentService       *services.AgentService
-	orderService       *services.OrderService
-	procurementService *services.ProcurementService
-	qrService          *services.QRService
+	vendorService       *services.VendorService
+	agentService        *services.AgentService
+	orderService        *services.OrderService
+	procurementService  *services.ProcurementService
+	qrService           *services.QRService
+	geminiParserService *services.GeminiParserService
 }
 
 func NewController(
@@ -22,13 +23,15 @@ func NewController(
 	orderService *services.OrderService,
 	procurementService *services.ProcurementService,
 	qrService *services.QRService,
+	geminiParserService *services.GeminiParserService,
 ) *Controller {
 	return &Controller{
-		vendorService:      vendorService,
-		agentService:       agentService,
-		orderService:       orderService,
-		procurementService: procurementService,
-		qrService:          qrService,
+		vendorService:       vendorService,
+		agentService:        agentService,
+		orderService:        orderService,
+		procurementService:  procurementService,
+		qrService:           qrService,
+		geminiParserService: geminiParserService,
 	}
 }
 
@@ -73,6 +76,38 @@ func (ctl *Controller) RecommendVendors(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, recommendation)
+}
+
+func (ctl *Controller) ParseAndRecommendVendors(c *gin.Context) {
+	var req models.NaturalLanguageRecommendationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	parsed, normalizedRequest, err := ctl.geminiParserService.ParseProcurementPrompt(req.Prompt, req.TopN)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	recommendation, err := ctl.agentService.RecommendVendors(*normalizedRequest)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := ctl.agentService.SaveRecommendationSession(*normalizedRequest, recommendation); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.NaturalLanguageRecommendationResponse{
+		Prompt:         req.Prompt,
+		ParsedRequest:  *parsed,
+		Request:        *normalizedRequest,
+		Recommendation: recommendation,
+	})
 }
 
 func (ctl *Controller) CreateOrder(c *gin.Context) {
