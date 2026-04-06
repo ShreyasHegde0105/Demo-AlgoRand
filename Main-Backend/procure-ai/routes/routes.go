@@ -9,6 +9,7 @@ func RegisterRoutes(router *gin.Engine, controller *controllers.Controller) {
 	router.GET("/vendors", controller.GetVendors)
 	router.POST("/select-vendor", controller.SelectVendor)
 	router.POST("/agent/recommend-vendors", controller.RecommendVendors)
+	router.POST("/agent/parse-and-recommend", controller.ParseAndRecommendVendors)
 	router.POST("/create-order", controller.CreateOrder)
 	router.POST("/approve-order", controller.ApproveOrder)
 	router.POST("/lock-funds", controller.LockFunds)

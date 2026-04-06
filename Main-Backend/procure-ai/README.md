@@ -155,6 +155,19 @@ Server URL:
 http://localhost:8080
 ```
 
+Natural-language parsing via Gemini requires:
+
+```powershell
+$env:GEMINI_API_KEY="your_api_key"
+```
+
+Optional settings:
+
+```powershell
+$env:GEMINI_MODEL="gemini-2.0-flash"
+$env:GEMINI_TIMEOUT_SECONDS="15"
+```
+
 ## API Overview
 
 Current routes from [routes.go](C:/Users/bhats/OneDrive/Desktop/Dr_Hannibal_Lecter/Projects/Main-Backend/procure-ai/routes/routes.go):
@@ -162,6 +175,7 @@ Current routes from [routes.go](C:/Users/bhats/OneDrive/Desktop/Dr_Hannibal_Lect
 - `GET /vendors`
 - `POST /select-vendor`
 - `POST /agent/recommend-vendors`
+- `POST /agent/parse-and-recommend`
 - `POST /create-order`
 - `POST /approve-order`
 - `POST /lock-funds`
@@ -345,6 +359,57 @@ Use `topN` for frontend behavior:
 
 - `topN: 5` for initial shortlist
 - `topN: 10` or more for "Show more"
+
+### 4. Create Order From User Selection
+
+### 3A. Parse Natural Language And Recommend
+
+`POST /agent/parse-and-recommend`
+
+Purpose:
+
+- parse plain-English procurement requirements with Gemini
+- normalize them into backend request fields
+- run the existing recommendation engine
+- save the shortlist and return `recommendationId`
+
+Example request:
+
+```json
+{
+  "prompt": "I need 5 laptops of 40000 each and it should be available to me within a week",
+  "topN": 5
+}
+```
+
+Example response shape:
+
+```json
+{
+  "prompt": "I need 5 laptops of 40000 each and it should be available to me within a week",
+  "parsedRequest": {
+    "category": "laptops",
+    "quantity": 5,
+    "unitBudget": 40000,
+    "totalBudget": 200000,
+    "maxDeliveryDays": 7,
+    "preferredCities": []
+  },
+  "request": {
+    "category": "electronics",
+    "quantity": 5,
+    "budget": 200000,
+    "maxDeliveryDays": 7,
+    "preferredCities": [],
+    "topN": 5
+  },
+  "recommendation": {
+    "recommendationId": "REC-0001"
+  }
+}
+```
+
+If Gemini is not configured, this route returns an error asking for `GEMINI_API_KEY`.
 
 ### 4. Create Order From User Selection
 
