@@ -2,21 +2,15 @@ package main
 
 import (
 	"log"
-	"os"
-	"path/filepath"
 
+	"github.com/gin-gonic/gin"
 	"procure-ai/controllers"
 	"procure-ai/db"
 	"procure-ai/routes"
 	"procure-ai/services"
-
-	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
 )
 
 func main() {
-	loadEnvFile()
-
 	database, err := db.NewPostgresDB()
 	if err != nil {
 		log.Fatal(err)
@@ -38,7 +32,6 @@ func main() {
 	blockchainService := services.NewBlockchainService(database)
 	procurementService := services.NewProcurementService(agentService, orderService, blockchainService)
 	qrService := services.NewQRService(database, orderService)
-	geminiParserService := services.NewGeminiParserServiceFromEnv()
 
 	controller := controllers.NewController(
 		vendorService,
@@ -46,7 +39,6 @@ func main() {
 		orderService,
 		procurementService,
 		qrService,
-		geminiParserService,
 	)
 
 	routes.RegisterRoutes(router, controller)
@@ -54,25 +46,5 @@ func main() {
 	log.Println("Autonomous Procurement Agent backend running on :8080")
 	if err := router.Run(":8080"); err != nil {
 		log.Fatal(err)
-	}
-}
-
-func loadEnvFile() {
-	// Support starting the binary from either project root or parent workspace.
-	candidates := []string{
-		".env",
-		filepath.Join("procure-ai", ".env"),
-	}
-
-	for _, path := range candidates {
-		if _, err := os.Stat(path); err != nil {
-			continue
-		}
-		if err := godotenv.Overload(path); err != nil {
-			log.Printf("warning: failed to load %s: %v", path, err)
-			continue
-		}
-		log.Printf("loaded environment variables from %s", path)
-		return
 	}
 }
