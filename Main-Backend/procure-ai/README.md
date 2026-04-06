@@ -1,38 +1,37 @@
 # Procure AI Backend
 
-Backend service for an autonomous procurement workflow built with Go, Gin, GORM, and PostgreSQL.
+Backend service for an autonomous procurement workflow built with Go, Gin, GORM, PostgreSQL, and an Algorand ARC-4 escrow contract.
 
-This backend does four main jobs:
+The current system supports:
 
-1. stores supplier data
-2. runs an agent-style vendor recommendation flow
-3. creates and manages procurement orders
-4. simulates payment lock/release and delivery confirmation
+1. supplier recommendation and shortlist storage
+2. order creation from a validated shortlist
+3. off-chain order approval
+4. on-chain escrow creation, funding, approval, release, and settlement logging
+5. QR generation and verification for delivery flow
 
-The current system is backend-first and hackathon-friendly:
+## Current Lifecycle
 
-- supplier quotes are mocked through seeded vendor data
-- vendor recommendation is rule-based, not LLM-based
-- payment/blockchain calls are mocked but already follow a clean `txID` pattern
-
-## What The System Does
-
-The current procurement flow is:
+The implemented procurement flow is:
 
 1. user submits procurement requirements
-2. backend agent evaluates vendors and returns a ranked shortlist
-3. frontend shows top vendors to the user
-4. user selects one vendor from the shortlist
-5. backend creates an order and stores decision metadata
-6. order moves through approval, fund lock, QR verification, delivery, and payment release
+2. backend ranks vendors and stores a recommendation session
+3. user selects a vendor from the saved shortlist
+4. backend creates an order in `pending_approval`
+5. human approves the order
+6. backend creates an Algorand escrow app for that order
+7. agent stores `selectedSupplier` and `quoteId` on-chain
+8. approver marks the escrow approved on-chain
+9. buyer funds escrow
+10. buyer confirms delivery
+11. approver releases payment
+12. backend verifies settlement state and stores settlement metadata
 
-This is important:
+Important:
 
-- the agent recommends vendors
-- the user still chooses the vendor
-- the backend validates that the chosen vendor was actually part of the saved shortlist
-
-So the agent acts like a procurement advisor, not an auto-buyer.
+- the agent recommends suppliers, but the user still chooses the supplier off-chain
+- the smart contract enforces agent and approver roles on-chain
+- release only succeeds after approval and before quote expiry
 
 ## Tech Stack
 
@@ -41,6 +40,7 @@ So the agent acts like a procurement advisor, not an auto-buyer.
 - GORM
 - PostgreSQL
 - `go-qrcode`
+- Algorand helper bridge via Python in `../procure-contracts`
 
 ## Project Structure
 
@@ -54,58 +54,11 @@ procure-ai/
   main.go        application bootstrap
 ```
 
-Important folders:
-
-- [controllers](C:/Users/bhats/OneDrive/Desktop/Dr_Hannibal_Lecter/Projects/Main-Backend/procure-ai/controllers)
-- [db](C:/Users/bhats/OneDrive/Desktop/Dr_Hannibal_Lecter/Projects/Main-Backend/procure-ai/db)
-- [models](C:/Users/bhats/OneDrive/Desktop/Dr_Hannibal_Lecter/Projects/Main-Backend/procure-ai/models)
-- [routes](C:/Users/bhats/OneDrive/Desktop/Dr_Hannibal_Lecter/Projects/Main-Backend/procure-ai/routes)
-- [services](C:/Users/bhats/OneDrive/Desktop/Dr_Hannibal_Lecter/Projects/Main-Backend/procure-ai/services)
-
-## Current Backend Capabilities
-
-### Vendor and Quote Layer
-
-- stores vendor data in PostgreSQL
-- seeds 20 mock vendors on startup if they do not already exist
-- supports multiple vendor attributes such as:
-  - price
-  - trust
-  - delivery days
-  - stock
-  - minimum order quantity
-  - location
-  - payment terms
-  - reliability score
-  - category
-
-### Agent Recommendation Layer
-
-- filters vendors using procurement constraints
-- scores eligible vendors
-- returns ranked vendors
-- stores recommendation sessions in DB
-- gives each recommendation a `recommendationId`
-
-### Order Layer
-
-- creates orders only from a saved recommendation shortlist
-- stores agent metadata with the order
-- starts new orders in `pending_approval`
-
-### Payment and Delivery Layer
-
-- approves orders
-- locks funds with a mock blockchain transaction id
-- generates and verifies QR codes
-- confirms delivery
-- releases payment with a mock blockchain transaction id
-
 ## Database Setup
 
-Current PostgreSQL connection is defined in [database.go](C:/Users/bhats/OneDrive/Desktop/Dr_Hannibal_Lecter/Projects/Main-Backend/procure-ai/db/database.go).
+Current PostgreSQL connection is defined in [database.go](C:/Users/bhats/OneDrive/Desktop/Dr_Hannibal_Lecter/Projects/main-backend/procure-ai/db/database.go).
 
-Current values:
+Current values in source:
 
 - host: `localhost`
 - port: `5432`
@@ -113,18 +66,9 @@ Current values:
 - password: `LowKey7642`
 - db name: `procure_ai`
 
-The DSN is currently hardcoded in source, so if your local database config is different, update [database.go](C:/Users/bhats/OneDrive/Desktop/Dr_Hannibal_Lecter/Projects/Main-Backend/procure-ai/db/database.go) before running the app.
+The DSN is currently hardcoded, so update [database.go](C:/Users/bhats/OneDrive/Desktop/Dr_Hannibal_Lecter/Projects/main-backend/procure-ai/db/database.go) if your local database differs.
 
-## Startup Behavior
-
-On startup, the backend does the following:
-
-1. connects to PostgreSQL
-2. runs auto-migration
-3. seeds vendors if they are missing
-4. starts the Gin server on port `8080`
-
-Current migrated models include:
+Auto-migrated models:
 
 - vendors
 - orders
@@ -133,20 +77,18 @@ Current migrated models include:
 
 ## Run Locally
 
-### Option 1: normal Go commands
+From [procure-ai](C:/Users/bhats/OneDrive/Desktop/Dr_Hannibal_Lecter/Projects/main-backend/procure-ai):
 
-```bash
+```powershell
 go mod tidy
 go run .
 ```
 
-### Option 2: if Go build cache permissions cause issues
-
-Use a workspace-local cache:
+If Go cache permissions cause issues:
 
 ```powershell
 $env:GOCACHE=(Join-Path (Get-Location) '.gocache')
-& 'C:\Program Files\Go\bin\go.exe' run .
+go run .
 ```
 
 Server URL:
@@ -155,22 +97,24 @@ Server URL:
 http://localhost:8080
 ```
 
-Natural-language parsing via Gemini requires:
+Gemini parsing is optional. To use `POST /agent/parse-and-recommend`, set:
 
 ```powershell
 $env:GEMINI_API_KEY="your_api_key"
 ```
 
-Optional settings:
+## Contract Dependency
 
-```powershell
-$env:GEMINI_MODEL="gemini-2.0-flash"
-$env:GEMINI_TIMEOUT_SECONDS="15"
-```
+The blockchain flow depends on the helper in [escrow_cli.py](C:/Users/bhats/OneDrive/Desktop/Dr_Hannibal_Lecter/Projects/main-backend/procure-contracts/scripts/escrow_cli.py) and the compiled ARC-56 app spec in [procure_escrow.arc56.json](C:/Users/bhats/OneDrive/Desktop/Dr_Hannibal_Lecter/Projects/main-backend/procure-contracts/artifacts/procure_escrow.arc56.json).
+
+Before using blockchain routes:
+
+1. compile the contract in `../procure-contracts`
+2. ensure Algod env vars are loaded into the shell that starts this backend
 
 ## API Overview
 
-Current routes from [routes.go](C:/Users/bhats/OneDrive/Desktop/Dr_Hannibal_Lecter/Projects/Main-Backend/procure-ai/routes/routes.go):
+Routes from [routes.go](C:/Users/bhats/OneDrive/Desktop/Dr_Hannibal_Lecter/Projects/main-backend/procure-ai/routes/routes.go):
 
 - `GET /vendors`
 - `POST /select-vendor`
@@ -183,55 +127,74 @@ Current routes from [routes.go](C:/Users/bhats/OneDrive/Desktop/Dr_Hannibal_Lect
 - `POST /generate-qr`
 - `POST /verify-qr`
 - `POST /confirm-delivery`
+- `POST /blockchain/create-escrow`
+- `POST /blockchain/prepare-select-supplier`
+- `POST /blockchain/confirm-select-supplier`
+- `POST /blockchain/prepare-approve`
+- `POST /blockchain/confirm-approve`
+- `POST /blockchain/prepare-fund`
+- `POST /blockchain/confirm-fund`
+- `POST /blockchain/prepare-release`
+- `POST /blockchain/confirm-release`
 
-## Recommended Product Flow
+## Request Ownership
 
-This is the intended frontend/backend flow:
+In normal usage, request bodies come from the client:
 
-1. call `POST /agent/recommend-vendors`
-2. show top 5 vendors to the user
-3. if user wants more options, call the same route again with larger `topN`
-4. user selects one vendor from the shortlist
-5. call `POST /create-order`
-6. order is created as `pending_approval`
-7. continue with approval and payment lifecycle
+- frontend UI
+- Postman during testing
+- any API consumer
+
+General rule:
+
+- `prepare-*` routes build unsigned transactions for a wallet signer
+- `confirm-*` routes sync backend state after the signed transaction is submitted on-chain
 
 ## Core Concepts
 
-### 1. Recommendation Session
+### Recommendation Session
 
-When `POST /agent/recommend-vendors` is called:
+When `POST /agent/recommend-vendors` runs:
 
-- the backend computes the shortlist
-- the shortlist is saved in DB
-- the response includes `recommendationId`
+- backend computes the shortlist
+- shortlist is stored in DB
+- response returns `recommendationId`
 
-That `recommendationId` must later be used when creating the order.
+That `recommendationId` is required later for `POST /create-order`.
 
-### 2. Shortlist Validation
+### Shortlist Validation
 
-When `POST /create-order` is called:
+When `POST /create-order` runs:
 
-- backend checks the saved recommendation session
-- backend confirms the chosen vendor exists in that shortlist
-- backend rejects vendors that were never recommended for that session
+- backend loads the saved recommendation session
+- backend confirms the selected vendor is actually in the shortlist
+- backend rejects vendors outside the saved recommendation
 
-This prevents bypassing the agent flow.
+### Order Metadata
 
-### 3. Order Metadata
-
-Orders store agent decision metadata such as:
+Orders store procurement and escrow metadata including:
 
 - `recommendationId`
 - `selectionReason`
 - `agentScore`
 - `shortlistSnapshot`
-
-This makes the order explainable and audit-friendly.
+- `buyerAddress`
+- `sellerAddress`
+- `agentAddress`
+- `approverAddress`
+- `selectedSupplier`
+- `quoteId`
+- `quoteValidUntil`
+- `escrowApproved`
+- `fundingTxId`
+- `releaseTxId`
+- `settlementSupplier`
+- `settlementAmount`
+- `settlementTxId`
 
 ## Order Status Flow
 
-Current state progression:
+Current status progression:
 
 1. `pending_approval`
 2. `approved`
@@ -241,368 +204,56 @@ Current state progression:
 
 Rules:
 
-- `lock-funds` requires status `approved`
-- `confirm-delivery` requires status `funds_locked`
-- `release-payment` requires status `delivered`
-- `confirm-delivery` currently also triggers payment release internally
+- `approve-order` requires `pending_approval`
+- `prepare-fund` requires `approved`
+- `confirm-delivery` requires `funds_locked`
+- `prepare-release` requires `funds_locked` or `delivered`
 
-## Detailed API Guide
+Notes:
 
-### 1. Get Vendors
+- `confirm-delivery` now only marks the order as delivered
+- payment release is no longer triggered automatically by `confirm-delivery`
+- on-chain approval is tracked separately from off-chain order approval
 
-`GET /vendors`
+## Main API Flow
 
-Purpose:
-
-- fetch all vendors currently stored in DB
-- useful for inspection and debugging
-
-Example response:
-
-```json
-{
-  "vendors": [
-    {
-      "id": 1,
-      "name": "Alpha Industrial Supply",
-      "price": 94.5,
-      "trust": 4.8,
-      "deliveryDays": 2,
-      "stock": 450,
-      "minOrderQty": 20,
-      "location": "Mumbai",
-      "paymentTerms": "Net 15",
-      "reliabilityScore": 96,
-      "category": "electronics"
-    }
-  ]
-}
-```
-
-### 2. Basic Manual Vendor Selection
-
-`POST /select-vendor`
-
-Purpose:
-
-- legacy/basic scoring endpoint
-- works on raw vendor input sent directly in request body
-
-Example request:
-
-```json
-{
-  "vendors": [
-    {
-      "name": "Vendor A",
-      "price": 95,
-      "trust": 4.5
-    },
-    {
-      "name": "Vendor B",
-      "price": 100,
-      "trust": 4.8
-    }
-  ]
-}
-```
-
-This route is not the main agent workflow anymore.
-
-### 3. Agent Recommendation
-
-`POST /agent/recommend-vendors`
-
-Purpose:
-
-- compute ranked vendor shortlist based on procurement requirements
-- save shortlist as a recommendation session
-- return `recommendationId`
-
-Example request:
-
-```json
-{
-  "category": "electronics",
-  "quantity": 40,
-  "budget": 4000,
-  "maxDeliveryDays": 5,
-  "preferredCities": ["Mumbai", "Delhi", "Pune"],
-  "topN": 5
-}
-```
-
-Example response shape:
-
-```json
-{
-  "recommendationId": "REC-0001",
-  "recommendedVendor": {
-    "rank": 1,
-    "vendor": {
-      "name": "Alpha Industrial Supply"
-    }
-  },
-  "topVendors": [],
-  "rejectedVendors": [],
-  "appliedWeights": {
-    "price": 0.35,
-    "delivery": 0.25,
-    "trust": 0.2,
-    "reliability": 0.2
-  },
-  "summary": "Ranked 2 eligible vendors and shortlisted the top 2 for category \"electronics\"."
-}
-```
-
-Use `topN` for frontend behavior:
-
-- `topN: 5` for initial shortlist
-- `topN: 10` or more for "Show more"
-
-### 4. Create Order From User Selection
-
-### 3A. Parse Natural Language And Recommend
-
-`POST /agent/parse-and-recommend`
-
-Purpose:
-
-- parse plain-English procurement requirements with Gemini
-- normalize them into backend request fields
-- run the existing recommendation engine
-- save the shortlist and return `recommendationId`
-
-Example request:
-
-```json
-{
-  "prompt": "I need 5 laptops of 40000 each and it should be available to me within a week",
-  "topN": 5
-}
-```
-
-Example response shape:
-
-```json
-{
-  "prompt": "I need 5 laptops of 40000 each and it should be available to me within a week",
-  "parsedRequest": {
-    "category": "laptops",
-    "quantity": 5,
-    "unitBudget": 40000,
-    "totalBudget": 200000,
-    "maxDeliveryDays": 7,
-    "preferredCities": []
-  },
-  "request": {
-    "category": "electronics",
-    "quantity": 5,
-    "budget": 200000,
-    "maxDeliveryDays": 7,
-    "preferredCities": [],
-    "topN": 5
-  },
-  "recommendation": {
-    "recommendationId": "REC-0001"
-  }
-}
-```
-
-If Gemini is not configured, this route returns an error asking for `GEMINI_API_KEY`.
-
-### 4. Create Order From User Selection
-
-`POST /create-order`
-
-Purpose:
-
-- create an order only after user selects a vendor from the saved shortlist
-
-Required request:
-
-```json
-{
-  "recommendationId": "REC-0001",
-  "vendor": "Vertex Trade Links",
-  "quantity": 40
-}
-```
-
-Important behavior:
-
-- `recommendationId` must exist
-- `vendor` must be part of that recommendation's shortlist
-- `quantity` must match the recommendation session quantity
-
-What backend stores on the order:
-
-- chosen vendor
-- category
-- quantity
-- unit price
-- total amount
-- `recommendationId`
-- `selectionReason`
-- `agentScore`
-- `shortlistSnapshot`
-- initial status `pending_approval`
-
-### 5. Approve Order
-
-`POST /approve-order`
-
-Purpose:
-
-- move order from `pending_approval` to `approved`
-
-Request:
-
-```json
-{
-  "orderId": "ORD-0001"
-}
-```
-
-### 6. Lock Funds
-
-`POST /lock-funds`
-
-Purpose:
-
-- simulate blockchain fund lock
-- store mock transaction id in the order's `paymentTxId` field
-
-Request:
-
-```json
-{
-  "orderId": "ORD-0001"
-}
-```
-
-Example response:
-
-```json
-{
-  "orderId": "ORD-0001",
-  "txID": "lock-ORD-0001-abcdef12",
-  "status": "funds_locked"
-}
-```
-
-### 7. Generate QR
-
-`POST /generate-qr`
-
-Purpose:
-
-- generate QR data for order handoff or delivery verification
-
-Request:
-
-```json
-{
-  "orderId": "ORD-0001"
-}
-```
-
-### 8. Verify QR
-
-`POST /verify-qr`
-
-Purpose:
-
-- validate QR for the given order
-
-Request:
-
-```json
-{
-  "orderId": "ORD-0001",
-  "qrCode": "PROCURE-ORDER:ORD-0001"
-}
-```
-
-### 9. Confirm Delivery
-
-`POST /confirm-delivery`
-
-Purpose:
-
-- first mark order as delivered
-- then trigger payment release
-
-Request:
-
-```json
-{
-  "orderId": "ORD-0001"
-}
-```
-
-Current behavior:
-
-- briefly sets order to `delivered`
-- then calls payment release logic
-- final order status becomes `payment_released`
-
-### 10. Release Payment
-
-`POST /release-payment`
-
-Purpose:
-
-- explicit payment release endpoint
-- currently used for mocked payment flow
-
-Request:
-
-```json
-{
-  "orderId": "ORD-0001"
-}
-```
-
-## End-To-End Test Flow
-
-Use this sequence in Postman:
-
-### Step 1
+### 1. Recommend Vendors
 
 `POST /agent/recommend-vendors`
 
 ```json
 {
   "category": "electronics",
-  "quantity": 40,
-  "budget": 4000,
-  "maxDeliveryDays": 5,
-  "preferredCities": ["Mumbai", "Delhi", "Pune"],
-  "topN": 5
+  "quantity": 10,
+  "budget": 50000,
+  "maxDeliveryDays": 7,
+  "preferredCities": ["Bangalore", "Mumbai"],
+  "topN": 3
 }
 ```
 
-Save the returned:
+Save:
 
 - `recommendationId`
-- one vendor name from `topVendors`
+- selected vendor name from `topVendors`
 
-### Step 2
+### 2. Create Order
 
 `POST /create-order`
 
 ```json
 {
   "recommendationId": "REC-0001",
-  "vendor": "Vertex Trade Links",
-  "quantity": 40
+  "vendor": "Acme Supplies",
+  "quantity": 10
 }
 ```
 
-Save the returned `orderId`.
+Save:
 
-### Step 3
+- `orderId`
+
+### 3. Approve Order
 
 `POST /approve-order`
 
@@ -612,40 +263,88 @@ Save the returned `orderId`.
 }
 ```
 
-### Step 4
+### 4. Create Escrow
 
-`POST /lock-funds`
-
-```json
-{
-  "orderId": "ORD-0001"
-}
-```
-
-### Step 5
-
-`POST /generate-qr`
-
-```json
-{
-  "orderId": "ORD-0001"
-}
-```
-
-Copy the returned QR code.
-
-### Step 6
-
-`POST /verify-qr`
+`POST /blockchain/create-escrow`
 
 ```json
 {
   "orderId": "ORD-0001",
-  "qrCode": "PROCURE-ORDER:ORD-0001"
+  "buyerAddress": "ACCOUNT_A_ADDRESS",
+  "sellerAddress": "ACCOUNT_B_ADDRESS",
+  "agentAddress": "ACCOUNT_A_ADDRESS",
+  "approverAddress": "ACCOUNT_A_ADDRESS",
+  "escrowAmountMicroAlgos": 1000000,
+  "quoteValidUntil": 999999999
 }
 ```
 
-### Step 7
+### 5. Prepare Supplier Selection
+
+`POST /blockchain/prepare-select-supplier`
+
+```json
+{
+  "orderId": "ORD-0001",
+  "selectedSupplier": "Acme Supplies",
+  "quoteId": "QUOTE-001"
+}
+```
+
+### 6. Confirm Supplier Selection
+
+After the signed transaction is submitted:
+
+`POST /blockchain/confirm-select-supplier`
+
+```json
+{
+  "orderId": "ORD-0001"
+}
+```
+
+### 7. Prepare Escrow Approval
+
+`POST /blockchain/prepare-approve`
+
+```json
+{
+  "orderId": "ORD-0001"
+}
+```
+
+### 8. Confirm Escrow Approval
+
+`POST /blockchain/confirm-approve`
+
+```json
+{
+  "orderId": "ORD-0001"
+}
+```
+
+### 9. Prepare Fund
+
+`POST /blockchain/prepare-fund`
+
+```json
+{
+  "orderId": "ORD-0001"
+}
+```
+
+### 10. Confirm Fund
+
+`POST /blockchain/confirm-fund`
+
+```json
+{
+  "orderId": "ORD-0001",
+  "txID": "SUBMITTED_GROUP_TX_ID"
+}
+```
+
+### 11. Confirm Delivery
 
 `POST /confirm-delivery`
 
@@ -655,50 +354,54 @@ Copy the returned QR code.
 }
 ```
 
-## What Is Mocked Right Now
+### 12. Prepare Release
 
-The following parts are still mocked:
+`POST /blockchain/prepare-release`
 
-- vendor quote sourcing
-- blockchain settlement
-- transaction ids for lock/release
+```json
+{
+  "orderId": "ORD-0001"
+}
+```
 
-Current blockchain-style behavior is still useful because:
+### 13. Confirm Release
 
-- backend already follows a clean integration pattern
-- lock and release return `txID`
-- order stores payment transaction information
+`POST /blockchain/confirm-release`
 
-Later, the internal implementation of the blockchain service can be replaced with a real Algorand integration without redesigning the whole backend flow.
+```json
+{
+  "orderId": "ORD-0001",
+  "txID": "SUBMITTED_RELEASE_TX_ID"
+}
+```
 
-## Why We Still Use PostgreSQL
+This step also syncs:
 
-Even if a blockchain layer is added later, PostgreSQL is still needed for normal application data.
+- `settlementSupplier`
+- `settlementAmount`
+- `settlementTxId`
 
-Use DB for:
+## Legacy Routes
 
-- vendors
-- recommendation sessions
-- shortlist snapshots
-- orders
-- approval state
-- QR records
-- audit metadata
+These still exist for backward compatibility:
 
-Use blockchain later for:
+- `POST /lock-funds`
+- `POST /release-payment`
 
-- fund lock
-- fund release
-- transaction proof
+They are mock-style flows and should not be used for Algorand escrow orders.
 
-Database is the operational application store.
-Blockchain is the settlement/trust layer.
+## QR Flow
+
+QR routes remain off-chain:
+
+- `POST /generate-qr`
+- `POST /verify-qr`
+
+They can be used alongside the blockchain flow for delivery and handoff UX.
 
 ## Build And Test
 
-If Go is on PATH:
-
-```bash
+```powershell
 go build ./...
 go test ./...
 ```
@@ -707,28 +410,24 @@ If Go cache permissions are an issue:
 
 ```powershell
 $env:GOCACHE=(Join-Path (Get-Location) '.gocache')
-& 'C:\Program Files\Go\bin\go.exe' test ./...
+go test ./...
 ```
 
 ## Current Limitations
 
 - no authentication
-- no user roles
-- no pagination on vendor/order data
-- no real blockchain integration yet
-- no real supplier quote aggregation yet
-- no frontend session management in this repo
+- no user/session authorization layer in the Go API
+- DB DSN is hardcoded
+- supplier quotes are still mocked through seeded vendor data
+- Postman can prepare blockchain transactions, but wallet signing still happens outside Postman
+- contract env loading must be present in the shell that starts the backend
 
 ## Summary
 
-This backend is now set up for a solid hackathon procurement demo:
+This backend now supports a full procurement-to-settlement demo:
 
-- vendors are seeded and queryable
-- the agent returns a ranked shortlist
-- the shortlist is stored with a recommendation id
-- the user can choose from recommended vendors
-- the backend validates that choice
-- the order stores decision metadata
-- the order lifecycle is enforced through status transitions
-
-That is a strong base for frontend integration and later blockchain replacement.
+- recommendation sessions are stored and validated
+- orders carry explainable agent metadata
+- Algorand escrow is role-aware
+- agent and approver actions are enforced on-chain
+- settlement details are stored both on-chain and in the backend
