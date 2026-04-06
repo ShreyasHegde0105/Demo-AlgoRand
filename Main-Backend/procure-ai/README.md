@@ -13,7 +13,7 @@ The current system is backend-first and hackathon-friendly:
 
 - supplier quotes are mocked through seeded vendor data
 - vendor recommendation is rule-based, not LLM-based
-- payment/blockchain calls are mocked but already follow a clean `txId` pattern
+- payment/blockchain calls are mocked but already follow a clean `txID` pattern
 
 ## What The System Does
 
@@ -56,11 +56,11 @@ procure-ai/
 
 Important folders:
 
-- [controllers](C:/Users/bhats/OneDrive/Desktop/Dr_Hannibal_Lecter/Projects/main-backend/procure-ai/controllers)
-- [db](C:/Users/bhats/OneDrive/Desktop/Dr_Hannibal_Lecter/Projects/main-backend/procure-ai/db)
-- [models](C:/Users/bhats/OneDrive/Desktop/Dr_Hannibal_Lecter/Projects/main-backend/procure-ai/models)
-- [routes](C:/Users/bhats/OneDrive/Desktop/Dr_Hannibal_Lecter/Projects/main-backend/procure-ai/routes)
-- [services](C:/Users/bhats/OneDrive/Desktop/Dr_Hannibal_Lecter/Projects/main-backend/procure-ai/services)
+- [controllers](C:/Users/bhats/OneDrive/Desktop/Dr_Hannibal_Lecter/Projects/Main-Backend/procure-ai/controllers)
+- [db](C:/Users/bhats/OneDrive/Desktop/Dr_Hannibal_Lecter/Projects/Main-Backend/procure-ai/db)
+- [models](C:/Users/bhats/OneDrive/Desktop/Dr_Hannibal_Lecter/Projects/Main-Backend/procure-ai/models)
+- [routes](C:/Users/bhats/OneDrive/Desktop/Dr_Hannibal_Lecter/Projects/Main-Backend/procure-ai/routes)
+- [services](C:/Users/bhats/OneDrive/Desktop/Dr_Hannibal_Lecter/Projects/Main-Backend/procure-ai/services)
 
 ## Current Backend Capabilities
 
@@ -103,16 +103,17 @@ Important folders:
 
 ## Database Setup
 
-Current PostgreSQL connection is defined in [database.go](C:/Users/bhats/OneDrive/Desktop/Dr_Hannibal_Lecter/Projects/main-backend/procure-ai/db/database.go).
+Current PostgreSQL connection is defined in [database.go](C:/Users/bhats/OneDrive/Desktop/Dr_Hannibal_Lecter/Projects/Main-Backend/procure-ai/db/database.go).
 
 Current values:
 
 - host: `localhost`
 - port: `5432`
 - user: `postgres`
+- password: `LowKey7642`
 - db name: `procure_ai`
 
-If your local database config is different, update [database.go](C:/Users/bhats/OneDrive/Desktop/Dr_Hannibal_Lecter/Projects/main-backend/procure-ai/db/database.go) before running the app.
+The DSN is currently hardcoded in source, so if your local database config is different, update [database.go](C:/Users/bhats/OneDrive/Desktop/Dr_Hannibal_Lecter/Projects/Main-Backend/procure-ai/db/database.go) before running the app.
 
 ## Startup Behavior
 
@@ -156,7 +157,7 @@ http://localhost:8080
 
 ## API Overview
 
-Current routes from [routes.go](C:/Users/bhats/OneDrive/Desktop/Dr_Hannibal_Lecter/Projects/main-backend/procure-ai/routes/routes.go):
+Current routes from [routes.go](C:/Users/bhats/OneDrive/Desktop/Dr_Hannibal_Lecter/Projects/Main-Backend/procure-ai/routes/routes.go):
 
 - `GET /vendors`
 - `POST /select-vendor`
@@ -343,7 +344,7 @@ Example response shape:
 Use `topN` for frontend behavior:
 
 - `topN: 5` for initial shortlist
-- `topN: 10` or more for “Show more”
+- `topN: 10` or more for "Show more"
 
 ### 4. Create Order From User Selection
 
@@ -366,7 +367,7 @@ Required request:
 Important behavior:
 
 - `recommendationId` must exist
-- `vendor` must be part of that recommendation’s shortlist
+- `vendor` must be part of that recommendation's shortlist
 - `quantity` must match the recommendation session quantity
 
 What backend stores on the order:
@@ -405,7 +406,7 @@ Request:
 Purpose:
 
 - simulate blockchain fund lock
-- store mock transaction id
+- store mock transaction id in the order's `paymentTxId` field
 
 Request:
 
@@ -464,8 +465,8 @@ Request:
 
 Purpose:
 
-- mark order as delivered
-- trigger payment release
+- first mark order as delivered
+- then trigger payment release
 
 Request:
 
@@ -477,8 +478,8 @@ Request:
 
 Current behavior:
 
-- sets order to delivered
-- calls release payment logic
+- briefly sets order to `delivered`
+- then calls payment release logic
 - final order status becomes `payment_released`
 
 ### 10. Release Payment
@@ -600,7 +601,7 @@ The following parts are still mocked:
 Current blockchain-style behavior is still useful because:
 
 - backend already follows a clean integration pattern
-- lock and release return `txId`
+- lock and release return `txID`
 - order stores payment transaction information
 
 Later, the internal implementation of the blockchain service can be replaced with a real Algorand integration without redesigning the whole backend flow.
