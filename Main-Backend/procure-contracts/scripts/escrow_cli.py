@@ -226,7 +226,7 @@ def prepare_select_supplier(args: argparse.Namespace) -> dict[str, object]:
         AppClientMethodCallParams(
             sender=args.agent,
             method="set_selected_supplier",
-            args=[args.selected_supplier, args.quote_id],
+            args=[args.selected_supplier, args.seller, args.quote_id, args.quote_amount],
         )
     )
 
@@ -327,7 +327,9 @@ def build_parser() -> argparse.ArgumentParser:
     select_parser.add_argument("--app-id", type=int, required=True)
     select_parser.add_argument("--agent", required=True)
     select_parser.add_argument("--selected-supplier", required=True)
+    select_parser.add_argument("--seller", required=True)
     select_parser.add_argument("--quote-id", required=True)
+    select_parser.add_argument("--quote-amount", type=int, required=True)
     select_parser.set_defaults(handler=prepare_select_supplier)
 
     approve_parser = subparsers.add_parser("prepare-approve")

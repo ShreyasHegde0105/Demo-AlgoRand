@@ -14,6 +14,19 @@ import (
 	"github.com/joho/godotenv"
 )
 
+func corsMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+		c.Next()
+	}
+}
+
 func main() {
 	loadEnvFile()
 
@@ -31,6 +44,7 @@ func main() {
 	}
 
 	router := gin.Default()
+	router.Use(corsMiddleware())
 
 	vendorService := services.NewVendorService(database)
 	agentService := services.NewAgentService(database, vendorService)
