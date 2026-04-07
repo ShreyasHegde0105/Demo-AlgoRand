@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -14,6 +15,12 @@ import (
 )
 
 const defaultGeminiModel = "gemini-2.5-flash-lite"
+
+var fallbackGeminiModels = []string{
+	"gemini-2.5-flash",
+	"gemini-2.0-flash",
+	"gemini-1.5-flash",
+}
 
 type GeminiParserService struct {
 	apiKey     string
@@ -54,6 +61,33 @@ type geminiGenerateContentResponse struct {
 	} `json:"error,omitempty"`
 }
 
+type geminiRequestError struct {
+	Model      string
+	StatusCode int
+	Message    string
+}
+
+func (e *geminiRequestError) Error() string {
+	if e == nil {
+		return "Gemini request failed"
+	}
+	if e.StatusCode > 0 {
+		return fmt.Sprintf("Gemini API error for model %q (status %d): %s", e.Model, e.StatusCode, e.Message)
+	}
+	return fmt.Sprintf("Gemini API error for model %q: %s", e.Model, e.Message)
+}
+
+func (e *geminiRequestError) modelUnavailable() bool {
+	if e == nil {
+		return false
+	}
+	if e.StatusCode == http.StatusNotFound {
+		return true
+	}
+	message := strings.ToLower(e.Message)
+	return strings.Contains(message, "model") && (strings.Contains(message, "not found") || strings.Contains(message, "not supported") || strings.Contains(message, "unsupported"))
+}
+
 func NewGeminiParserServiceFromEnv() *GeminiParserService {
 	apiKey := strings.TrimSpace(os.Getenv("GEMINI_API_KEY"))
 	model := strings.TrimSpace(os.Getenv("GEMINI_MODEL"))
@@ -90,6 +124,42 @@ func (s *GeminiParserService) ParseProcurementPrompt(prompt string, topN int) (*
 		return nil, nil, fmt.Errorf("GEMINI_API_KEY is not configured")
 	}
 
+	var parsed models.ParsedProcurementRequest
+	modelsToTry := s.modelsToTry()
+
+	var lastErr error
+	for i, model := range modelsToTry {
+		parsedResult, err := s.parseWithModel(prompt, model)
+		if err == nil {
+			parsed = parsedResult
+			lastErr = nil
+			break
+		}
+
+		lastErr = err
+		if i == len(modelsToTry)-1 {
+			break
+		}
+
+		requestErr, ok := err.(*geminiRequestError)
+		if !ok || !requestErr.modelUnavailable() {
+			break
+		}
+	}
+
+	if lastErr != nil {
+		return nil, nil, lastErr
+	}
+
+	request, err := normalizeParsedProcurementRequest(parsed, topN)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return &parsed, request, nil
+}
+
+func (s *GeminiParserService) parseWithModel(prompt string, model string) (models.ParsedProcurementRequest, error) {
 	payload := geminiGenerateContentRequest{
 		Contents: []geminiContent{
 			{
@@ -133,52 +203,94 @@ func (s *GeminiParserService) ParseProcurementPrompt(prompt string, topN int) (*
 
 	body, err := json.Marshal(payload)
 	if err != nil {
-		return nil, nil, err
+		return models.ParsedProcurementRequest{}, err
 	}
 
-	url := fmt.Sprintf("%s/models/%s:generateContent?key=%s", s.baseURL, s.model, s.apiKey)
+	url := fmt.Sprintf("%s/models/%s:generateContent?key=%s", s.baseURL, model, s.apiKey)
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
-		return nil, nil, err
+		return models.ParsedProcurementRequest{}, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
-		return nil, nil, err
+		return models.ParsedProcurementRequest{}, err
 	}
 	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, nil, err
+		return models.ParsedProcurementRequest{}, err
 	}
 
 	var parsedResponse geminiGenerateContentResponse
+	if resp.StatusCode >= 400 {
+		message := strings.TrimSpace(string(respBody))
+		if err := json.Unmarshal(respBody, &parsedResponse); err == nil && parsedResponse.Error != nil {
+			message = strings.TrimSpace(parsedResponse.Error.Message)
+		}
+		if message == "" {
+			message = http.StatusText(resp.StatusCode)
+		}
+		return models.ParsedProcurementRequest{}, &geminiRequestError{
+			Model:      model,
+			StatusCode: resp.StatusCode,
+			Message:    message,
+		}
+	}
+
 	if err := json.Unmarshal(respBody, &parsedResponse); err != nil {
-		return nil, nil, fmt.Errorf("failed to decode Gemini response: %w", err)
+		return models.ParsedProcurementRequest{}, fmt.Errorf("failed to decode Gemini response: %w", err)
 	}
 	if parsedResponse.Error != nil {
-		return nil, nil, fmt.Errorf("Gemini API error: %s", parsedResponse.Error.Message)
-	}
-	if resp.StatusCode >= 400 {
-		return nil, nil, fmt.Errorf("Gemini API returned status %d", resp.StatusCode)
+		return models.ParsedProcurementRequest{}, &geminiRequestError{
+			Model:      model,
+			StatusCode: resp.StatusCode,
+			Message:    strings.TrimSpace(parsedResponse.Error.Message),
+		}
 	}
 	if len(parsedResponse.Candidates) == 0 || len(parsedResponse.Candidates[0].Content.Parts) == 0 {
-		return nil, nil, fmt.Errorf("Gemini returned no content")
+		return models.ParsedProcurementRequest{}, fmt.Errorf("Gemini returned no content for model %q", model)
 	}
 
 	var parsed models.ParsedProcurementRequest
-	if err := json.Unmarshal([]byte(parsedResponse.Candidates[0].Content.Parts[0].Text), &parsed); err != nil {
-		return nil, nil, fmt.Errorf("failed to decode parsed procurement JSON: %w", err)
+	jsonPayload := extractJSON(parsedResponse.Candidates[0].Content.Parts[0].Text)
+	if err := json.Unmarshal([]byte(jsonPayload), &parsed); err != nil {
+		return models.ParsedProcurementRequest{}, fmt.Errorf("failed to decode parsed procurement JSON from model %q: %w", model, err)
 	}
 
-	request, err := normalizeParsedProcurementRequest(parsed, topN)
-	if err != nil {
-		return nil, nil, err
+	return parsed, nil
+}
+
+func (s *GeminiParserService) modelsToTry() []string {
+	models := make([]string, 0, 1+len(fallbackGeminiModels))
+	if strings.TrimSpace(s.model) != "" {
+		models = append(models, strings.TrimSpace(s.model))
+	}
+	for _, model := range fallbackGeminiModels {
+		trimmed := strings.TrimSpace(model)
+		if trimmed == "" || slices.Contains(models, trimmed) {
+			continue
+		}
+		models = append(models, trimmed)
+	}
+	return models
+}
+
+func extractJSON(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return trimmed
 	}
 
-	return &parsed, request, nil
+	start := strings.Index(trimmed, "{")
+	end := strings.LastIndex(trimmed, "}")
+	if start >= 0 && end > start {
+		return strings.TrimSpace(trimmed[start : end+1])
+	}
+
+	return trimmed
 }
 
 func buildPrompt(prompt string) string {

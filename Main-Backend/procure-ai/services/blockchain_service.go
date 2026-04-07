@@ -18,10 +18,13 @@ import (
 )
 
 const (
-	escrowStatusCreated   = uint64(0)
-	escrowStatusFunded    = uint64(1)
-	escrowStatusDelivered = uint64(2)
-	escrowStatusReleased  = uint64(3)
+	escrowStatusCreated          = uint64(0)
+	escrowStatusSupplierSelected = uint64(1)
+	escrowStatusApproved         = uint64(2)
+	escrowStatusFunded           = uint64(3)
+	escrowStatusDelivered        = uint64(4)
+	escrowStatusReleased         = uint64(5)
+	escrowStatusRefunded         = uint64(6)
 )
 
 type BlockchainService struct {
@@ -118,7 +121,9 @@ func (s *BlockchainService) PrepareSelectSupplier(order *models.Order, selectedS
 		"--app-id", strconv.FormatUint(order.AlgorandAppID, 10),
 		"--agent", order.AgentAddress,
 		"--selected-supplier", selectedSupplier,
+		"--seller", order.SellerAddress,
 		"--quote-id", quoteID,
+		"--quote-amount", strconv.FormatUint(order.EscrowAmountMicro, 10),
 	); err != nil {
 		return nil, err
 	}
